@@ -24,3 +24,8 @@ def submit_cv():
 
 if __name__ == "__main__":
     app.run(debug=True)
+import os
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 10000))  # Render provides PORT
+    app.run(host="0.0.0.0", port=port)
