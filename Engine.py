@@ -103,3 +103,46 @@ if __name__ == "__main__":
 
     import pprint
     pprint.pprint(output)
+
+# ---------------------------
+# TECH NICHE SPECIALIZATION
+# ---------------------------
+
+def apply_tech_niche(prompt, user_info):
+    """
+    Modifies the prompt to focus specifically on tech graduate roles.
+    """
+
+    tech_focus = f"""
+    This user is targeting entry-level TECHNOLOGY roles.
+
+    Focus on companies hiring for:
+    - Software Engineering
+    - Data Analytics / Data Science
+    - Cybersecurity
+    - AI / Machine Learning
+    - Cloud / DevOps
+    - Backend / Full Stack Development
+
+    Prioritize:
+    - UK tech companies
+    - Tech startups
+    - SaaS companies
+    - Cybersecurity firms
+    - AI companies
+    - Fintech companies
+
+    Prefer companies that hire:
+    - graduates
+    - interns
+    - junior developers
+
+    The user is likely a tech graduate seeking their first role.
+
+    User Skills:
+    {user_info.get('cv')}
+
+    Match companies to these skills and give realistic match percentages.
+    """
+
+    return prompt + tech_focus
