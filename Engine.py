@@ -3,6 +3,8 @@
 import os
 import json
 from openai import OpenAI
+from flask import Flask
+app = Flask(__name__)
 
 # ---------------------------
 # CONFIG: Use environment variable for API key
