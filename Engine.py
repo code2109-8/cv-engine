@@ -858,3 +858,8 @@ def enhance_tech_results(results, user_skills, tier):
         enhanced_results.append(company)
 
     return enhanced_results
+
+@app.route("/")
+def health()
+    return {"status": "running"}
+
