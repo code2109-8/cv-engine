@@ -5,6 +5,9 @@ import json
 from openai import OpenAI
 from flask import Flask
 app = Flask(__name__)
+@app.route("/")
+def home():
+    return {"status": "running"}
 
 # ---------------------------
 # CONFIG: Use environment variable for API key
