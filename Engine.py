@@ -860,6 +860,6 @@ def enhance_tech_results(results, user_skills, tier):
     return enhanced_results
 
 @app.route("/")
-def health()
+def health():
     return {"status": "running"}
 
