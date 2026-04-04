@@ -1,868 +1,318 @@
-# ai_job_engine_safe.py
-
 import os
 import json
+import time
+from flask import Flask, request, jsonify
 from openai import OpenAI
-from flask import Flask
+
+# ---------------------------------------------------
+# APPLICATION SETUP
+# ---------------------------------------------------
+
 app = Flask(__name__)
-@app.route("/")
-def home():
-    return {"status": "running"}
 
-# ---------------------------
-# CONFIG: Use environment variable for API key
-# ---------------------------
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# ---------------------------------------------------
+# ENVIRONMENT CONFIGURATION
+# ---------------------------------------------------
 
-# ---------------------------
+API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not API_KEY:
+    raise RuntimeError("OPENAI_API_KEY not found in environment")
+
+client = OpenAI(api_key=API_KEY)
+
+# ---------------------------------------------------
 # TIER CONFIGURATION
-# ---------------------------
+# ---------------------------------------------------
+
 TIERS = {
-    "free": {"max_messages": 5, "cv_analysis": False},
-    "pro": {"max_messages": 20, "cv_analysis": True},
-    "advanced": {"max_messages": 50, "cv_analysis": True}
+    "free": {
+        "max_requests": 5,
+        "cv_analysis": False,
+        "company_targets": 3
+    },
+    "pro": {
+        "max_requests": 20,
+        "cv_analysis": True,
+        "company_targets": 10
+    },
+    "advanced": {
+        "max_requests": 50,
+        "cv_analysis": True,
+        "company_targets": 20
+    }
 }
 
-# ---------------------------
-# ENGINE FUNCTIONS
-# ---------------------------
-def generate_role_blueprint(user_info):
-    """
-    Generates company suggestions, contact info, message templates,
-    match percentage, and CV suggestions (for Pro/Advanced).
-    Wrapped safely so it won't crash the server.
-    """
-    try:
-        tier = user_info.get("tier", "free").lower()
-        tier_settings = TIERS.get(tier, TIERS["free"])
-
-        prompt = f"""
-        You are a smart career AI assistant. Use this user info to:
-        1. Suggest companies the user could target for jobs.
-        2. Find public emails of main company contacts and LinkedIn links for heads.
-        3. Create a personalized email and LinkedIn template for outreach.
-        4. Give a percentage match of user skills to company roles.
-        5. If tier allows, provide CV improvement suggestions.
-
-        User Info:
-        Name: {user_info.get('name')}
-        CV/Skills: {user_info.get('cv')}
-        Location: {user_info.get('location')}
-        Tier: {tier}
-        Max messages allowed this month: {tier_settings['max_messages']}
-
-        Respond in JSON with keys:
-        - company_name
-        - contact_email
-        - linkedin
-        - email_template
-        - linkedin_template
-        - match_percent
-        - cv_suggestions (empty list if not available)
-        """
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a helpful AI career assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
-
-        # Extract AI response text
-        ai_text = response.choices[0].message.content
-
-        # Try parsing JSON
-        try:
-            data = json.loads(ai_text)
-        except json.JSONDecodeError:
-            data = {"raw_output": ai_text}
-
-        # Ensure CV suggestions key exists
-        if "cv_suggestions" not in data:
-            data["cv_suggestions"] = [] if not tier_settings["cv_analysis"] else ["See AI output"]
-
-        return data
-
-    except Exception as e:
-        # Safety net: return error info without crashing
-        return {
-            "status": "error",
-            "message": f"Engine error caught safely: {str(e)}",
-            "input_received": user_info
-        }
-
-# ---------------------------
-# EXAMPLE USAGE (for local testing only)
-# ---------------------------
-if __name__ == "__main__":
-    user_info_example = {
-        "name": "John Doe",
-        "cv": "Python, SQL, Backend development, startup experience",
-        "location": "London, UK",
-        "tier": "pro"
-    }
-
-    output = generate_role_blueprint(user_info_example)
-
-    import pprint
-    pprint.pprint(output)
-
-# ---------------------------
-# TECH NICHE SPECIALIZATION
-# ---------------------------
-
-def apply_tech_niche(prompt, user_info):
-    """
-    Modifies the prompt to focus specifically on tech graduate roles.
-    """
-
-    tech_focus = f"""
-    This user is targeting entry-level TECHNOLOGY roles.
-
-    Focus on companies hiring for:
-    - Software Engineering
-    - Data Analytics / Data Science
-    - Cybersecurity
-    - AI / Machine Learning
-    - Cloud / DevOps
-    - Backend / Full Stack Development
-
-    Prioritize:
-    - UK tech companies
-    - Tech startups
-    - SaaS companies
-    - Cybersecurity firms
-    - AI companies
-    - Fintech companies
-
-    Prefer companies that hire:
-    - graduates
-    - interns
-    - junior developers
-
-    The user is likely a tech graduate seeking their first role.
-
-    User Skills:
-    {user_info.get('cv')}
-
-    Match companies to these skills and give realistic match percentages.
-    """
-
-    return prompt + tech_focus
-
-# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results# -------------------------------
-# CareerMind Premium Intelligence
-# -------------------------------
-
-def enhance_tech_results(results, user_skills, tier):
-    """
-    Adds advanced analysis for Pro and Advanced tiers.
-    Free tier receives basic results only.
-    """
-
-    # Free users get basic output
-    if tier.lower() == "free":
-        return results
-
-    enhanced_results = []
-
-    for company in results:
-
-        # PRO + ADVANCED FEATURES
-        if tier.lower() in ["pro", "advanced"]:
-
-            match_reason = []
-
-            skills = user_skills.lower()
-
-            if "python" in skills:
-                match_reason.append("Python development skills")
-
-            if "javascript" in skills:
-                match_reason.append("Frontend / JavaScript experience")
-
-            if "aws" in skills or "cloud" in skills:
-                match_reason.append("Cloud infrastructure experience")
-
-            if "machine learning" in skills or "ai" in skills:
-                match_reason.append("AI / Machine Learning background")
-
-            if "cyber" in skills:
-                match_reason.append("Cybersecurity knowledge")
-
-            if len(match_reason) == 0:
-                match_reason.append("General software development ability")
-
-            company["why_match"] = "Your skills match this company because of: " + ", ".join(match_reason)
-
-
-        # ADVANCED TIER ONLY
-        if tier.lower() == "advanced":
-
-            company["hiring_signal"] = (
-                "Companies like this often hire junior engineers before jobs are publicly listed."
-            )
-
-            company["strategy_tip"] = (
-                "Sending outreach to engineering managers increases response rates."
-            )
-
-        enhanced_results.append(company)
-
-    return enhanced_results
+# ---------------------------------------------------
+# SIMPLE MEMORY STORE
+# (temporary until database added)
+# ---------------------------------------------------
+
+user_usage = {}
+
+# ---------------------------------------------------
+# HEALTH CHECK ENDPOINT
+# ---------------------------------------------------
 
 @app.route("/")
 def health():
-    return {"status": "running"}
+    return jsonify({
+        "status": "CareerMind engine running",
+        "timestamp": time.time()
+    })
 
+
+# ---------------------------------------------------
+# USAGE TRACKING
+# ---------------------------------------------------
+
+def check_usage(user_id, tier):
+
+    tier_settings = TIERS.get(tier, TIERS["free"])
+
+    max_requests = tier_settings["max_requests"]
+
+    if user_id not in user_usage:
+        user_usage[user_id] = 0
+
+    if user_usage[user_id] >= max_requests:
+
+        return False, max_requests
+
+    user_usage[user_id] += 1
+
+    return True, max_requests
+
+
+# ---------------------------------------------------
+# INPUT VALIDATION
+# ---------------------------------------------------
+
+def validate_user_info(user_info):
+
+    if not isinstance(user_info, dict):
+        return False, "user_info must be a dictionary"
+
+    if "career_goal" not in user_info:
+        return False, "career_goal missing"
+
+    if "skills" not in user_info:
+        return False, "skills missing"
+
+    return True, None
+
+
+# ---------------------------------------------------
+# PROMPT BUILDER
+# ---------------------------------------------------
+
+def build_prompt(user_info, tier_settings):
+
+    company_count = tier_settings["company_targets"]
+
+    cv_enabled = tier_settings["cv_analysis"]
+
+    base_prompt = f"""
+You are an elite career intelligence engine.
+
+User profile:
+{json.dumps(user_info)}
+
+Generate:
+
+1. {company_count} companies they should apply to
+2. realistic recruiter email format
+3. outreach message template
+4. estimated match percentage
+5. strategy to stand out
+"""
+
+    if cv_enabled:
+
+        base_prompt += """
+
+6. CV improvement suggestions
+"""
+
+    base_prompt += """
+
+Return JSON with fields:
+
+companies
+emails
+outreach_message
+match_score
+strategy
+cv_feedback
+"""
+
+    return base_prompt
+
+
+# ---------------------------------------------------
+# OPENAI ENGINE
+# ---------------------------------------------------
+
+def run_ai_engine(prompt):
+
+    try:
+
+        response = client.chat.completions.create(
+
+            model="gpt-4.1-mini",
+
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You generate precise job acquisition strategies."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+
+        )
+
+        content = response.choices[0].message.content
+
+        return content
+
+    except Exception as e:
+
+        return {"error": str(e)}
+
+
+# ---------------------------------------------------
+# OUTPUT PARSER
+# ---------------------------------------------------
+
+def format_engine_output(ai_response):
+
+    if isinstance(ai_response, dict):
+        return ai_response
+
+    return {
+        "analysis": ai_response
+    }
+
+
+# ---------------------------------------------------
+# CORE ENGINE FUNCTION
+# ---------------------------------------------------
+
+def generate_job_strategy(user_info, tier):
+
+    tier_settings = TIERS.get(tier, TIERS["free"])
+
+    prompt = build_prompt(user_info, tier_settings)
+
+    ai_response = run_ai_engine(prompt)
+
+    formatted_output = format_engine_output(ai_response)
+
+    return formatted_output
+
+
+# ---------------------------------------------------
+# MAIN API ENDPOINT
+# ---------------------------------------------------
+
+@app.route("/analyze", methods=["POST"])
+def analyze():
+
+    try:
+
+        data = request.json
+
+        user_id = data.get("user_id", "anonymous")
+
+        tier = data.get("tier", "free")
+
+        user_info = data.get("user_info", {})
+
+        # ---------------------------
+        # VALIDATE INPUT
+        # ---------------------------
+
+        valid, error = validate_user_info(user_info)
+
+        if not valid:
+
+            return jsonify({
+                "success": False,
+                "error": error
+            }), 400
+
+        # ---------------------------
+        # CHECK USAGE LIMIT
+        # ---------------------------
+
+        allowed, limit = check_usage(user_id, tier)
+
+        if not allowed:
+
+            return jsonify({
+                "success": False,
+                "error": "Tier usage limit reached",
+                "limit": limit
+            }), 403
+
+        # ---------------------------
+        # RUN ENGINE
+        # ---------------------------
+
+        result = generate_job_strategy(user_info, tier)
+
+        # ---------------------------
+        # RETURN RESPONSE
+        # ---------------------------
+
+        return jsonify({
+
+            "success": True,
+
+            "tier": tier,
+
+            "usage": user_usage[user_id],
+
+            "result": result
+
+        })
+
+    except Exception as e:
+
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        }), 500
+
+
+# ---------------------------------------------------
+# DEBUG ENDPOINT
+# ---------------------------------------------------
+
+@app.route("/debug/tiers")
+def debug_tiers():
+
+    return jsonify(TIERS)
+
+
+# ---------------------------------------------------
+# LOCAL RUN SUPPORT
+# ---------------------------------------------------
+
+if __name__ == "__main__":
+
+    port = int(os.environ.get("PORT", 10000))
+
+    app.run(
+
+        host="0.0.0.0",
+
+        port=port
+
+    )
