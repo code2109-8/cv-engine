@@ -153,7 +153,7 @@ cv_feedback
 # OPENAI ENGINE
 # ---------------------------------------------------
 
-def run_engine(prompt):
+def run_ai_engine(prompt):
 
     try:
 
