@@ -14,10 +14,7 @@ app = Flask(__name__)
 # ENVIRONMENT CONFIGURATION
 # ---------------------------------------------------
 
-API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not API_KEY:
-    raise RuntimeError("OPENAI_API_KEY not found in environment")
+API_KEY = os.getenv("OPENAI_API_KEY", "missing")
 
 client = OpenAI(api_key=API_KEY)
 
@@ -318,9 +315,4 @@ if __name__ == "__main__":
     )
 
 
-
-def engine_entry(data):
-    user_info = data.get("user_info", {})
-    tier = data.get("tier", "free")
-    return generate_job_strategy(user_info, tier)
 
