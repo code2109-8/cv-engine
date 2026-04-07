@@ -320,6 +320,7 @@ if __name__ == "__main__":
 
 
 def engine_entry(data):
-    # call whatever internal functions your engine uses
-    return {"status": "engine working"}
+    user_info = data.get("user_info", {})
+    tier = data.get("tier", "free")
+    return generate_job_strategy(user_info, tier)
 
