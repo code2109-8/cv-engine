@@ -316,3 +316,10 @@ if __name__ == "__main__":
         port=port
 
     )
+
+
+
+def engine_entry(data):
+    # call whatever internal functions your engine uses
+    return {"status": "engine working"}
+
