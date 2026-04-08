@@ -3,12 +3,14 @@ import json
 import time
 from flask import Flask, request, jsonify
 from openai import OpenAI
+from flask_cors import CORS
 
 # ---------------------------------------------------
 # APPLICATION SETUP
 # ---------------------------------------------------
 
 app = Flask(__name__)
+CORS(app)
 
 # ---------------------------------------------------
 # ENVIRONMENT CONFIGURATION
