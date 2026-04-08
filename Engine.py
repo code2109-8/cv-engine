@@ -187,13 +187,12 @@ def run_ai_engine(prompt):
 # ---------------------------------------------------
 
 def format_engine_output(ai_response):
-
     if isinstance(ai_response, dict):
         return ai_response
-
-    return {
-        "analysis": ai_response
-    }
+    try:
+        return json.loads(ai_response)
+    except:
+        return {"analysis": ai_response}
 
 
 # ---------------------------------------------------
