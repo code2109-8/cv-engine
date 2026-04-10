@@ -2,318 +2,109 @@ import os
 import json
 import time
 from flask import Flask, request, jsonify
-from openai import OpenAI
 from flask_cors import CORS
-
-# ---------------------------------------------------
-# APPLICATION SETUP
-# ---------------------------------------------------
+from openai import OpenAI
 
 app = Flask(__name__)
 CORS(app)
 
-# ---------------------------------------------------
-# ENVIRONMENT CONFIGURATION
-# ---------------------------------------------------
-
 API_KEY = os.getenv("OPENAI_API_KEY", "missing")
-
 client = OpenAI(api_key=API_KEY)
 
-# ---------------------------------------------------
-# TIER CONFIGURATION
-# ---------------------------------------------------
-
 TIERS = {
-    "free": {
-        "max_requests": 5,
-        "cv_analysis": False,
-        "company_targets": 3
-    },
-    "pro": {
-        "max_requests": 20,
-        "cv_analysis": True,
-        "company_targets": 10
-    },
-    "advanced": {
-        "max_requests": 50,
-        "cv_analysis": True,
-        "company_targets": 20
-    }
+    "free": {"company_targets": 3, "cv_analysis": False},
+    "pro": {"company_targets": 15, "cv_analysis": True},
+    "advanced": {"company_targets": 30, "cv_analysis": True}
 }
-
-# ---------------------------------------------------
-# SIMPLE MEMORY STORE
-# (temporary until database added)
-# ---------------------------------------------------
 
 user_usage = {}
 
-# ---------------------------------------------------
-# HEALTH CHECK ENDPOINT
-# ---------------------------------------------------
-
 @app.route("/")
 def health():
-    return jsonify({
-        "status": "CareerMind engine running",
-        "timestamp": time.time()
-    })
+    return jsonify({"status": "CareerMind engine running", "timestamp": time.time()})
 
+@app.route("/analyze", methods=["POST"])
+def analyze():
+    try:
+        data = request.json
+        user_id = data.get("user_id", "anonymous")
+        tier = data.get("tier", "free")
+        user_info = data.get("user_info", {})
+        tier_settings = TIERS.get(tier, TIERS["free"])
+        company_count = tier_settings["company_targets"]
+        cv_enabled = tier_settings["cv_analysis"]
 
-# ---------------------------------------------------
-# USAGE TRACKING
-# ---------------------------------------------------
-
-def check_usage(user_id, tier):
-
-    tier_settings = TIERS.get(tier, TIERS["free"])
-
-    max_requests = tier_settings["max_requests"]
-
-    if user_id not in user_usage:
-        user_usage[user_id] = 0
-
-    if user_usage[user_id] >= max_requests:
-
-        return False, max_requests
-
-    user_usage[user_id] += 1
-
-    return True, max_requests
-
-
-# ---------------------------------------------------
-# INPUT VALIDATION
-# ---------------------------------------------------
-
-def validate_user_info(user_info):
-
-    if not isinstance(user_info, dict):
-        return False, "user_info must be a dictionary"
-
-    if "career_goal" not in user_info:
-        return False, "career_goal missing"
-
-    if "skills" not in user_info:
-        return False, "skills missing"
-
-    return True, None
-
-
-# ---------------------------------------------------
-# PROMPT BUILDER
-# ---------------------------------------------------
-
-def build_prompt(user_info, tier_settings):
-
-    company_count = tier_settings["company_targets"]
-
-    cv_enabled = tier_settings["cv_analysis"]
-
-    base_prompt = f"""
-You are an elite career intelligence engine.
+        prompt = f"""
+You are an elite AI career engine for tech professionals.
 
 User profile:
 {json.dumps(user_info)}
 
-Generate:
+Your task is to generate {company_count} real UK or global tech companies that are likely hiring for this person's skills.
 
-1. {company_count} companies they should apply to
-2. realistic recruiter email format
-3. outreach message template
-4. estimated match percentage
-5. strategy to stand out
+For each company you MUST provide:
+- A real company name
+- The likely job title this person would apply for at that company
+- A realistic decision maker name (e.g. Head of Engineering, CTO, Engineering Manager)
+- A realistic professional email for that decision maker based on the company's known email format
+- A realistic LinkedIn search URL for that decision maker like https://www.linkedin.com/search/results/people/?keywords=Head+of+Engineering+DeepMind
+- A match percentage between 60 and 99 based on how well the person fits
+- A personalised outreach email subject line for that specific company
+- A personalised outreach email body for that specific company referencing their actual work and the user's specific skills
+- One sentence explaining why this company is a good match
+
+{"Also provide 3 specific CV improvement suggestions based on the user's experience." if cv_enabled else ""}
+
+Return ONLY a JSON object with NO extra text, NO markdown, NO backticks. Exactly this structure:
+
+{{
+  "companies": [
+    {{
+      "company_name": "DeepMind",
+      "job_title": "Software Engineer",
+      "decision_maker_name": "Sarah Johnson",
+      "decision_maker_role": "Head of Engineering",
+      "email": "s.johnson@deepmind.com",
+      "linkedin_url": "https://www.linkedin.com/search/results/people/?keywords=Head+of+Engineering+DeepMind",
+      "match_percentage": 92,
+      "match_reason": "Your Python and ML skills align directly with DeepMind's research engineering teams.",
+      "outreach_subject": "Software Engineer with ML background — keen to contribute at DeepMind",
+      "outreach_email": "Dear Sarah,\\n\\nI came across DeepMind's recent work on AlphaFold and was genuinely impressed..."
+    }}
+  ],
+  "cv_feedback": ["suggestion 1", "suggestion 2", "suggestion 3"]
+}}
 """
-
-    if cv_enabled:
-
-        base_prompt += """
-
-6. CV improvement suggestions
-"""
-
-    base_prompt += """
-
-Return JSON with fields:
-
-companies
-emails
-outreach_message
-match_score
-strategy
-cv_feedback
-"""
-
-    return base_prompt
-
-
-# ---------------------------------------------------
-# OPENAI ENGINE
-# ---------------------------------------------------
-
-def run_ai_engine(prompt):
-
-    try:
 
         response = client.chat.completions.create(
-
-            model="gpt-4.1-mini",
-
+            model="gpt-4o-mini",
             messages=[
-                {
-                    "role": "system",
-                    "content": "You generate precise job acquisition strategies."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-
+                {"role": "system", "content": "You are a precise career intelligence engine. You return only valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=4000
         )
 
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content.strip()
 
-        return content
+        # Clean any accidental markdown
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        content = content.strip()
 
-    except Exception as e:
-
-        return {"error": str(e)}
-
-
-# ---------------------------------------------------
-# OUTPUT PARSER
-# ---------------------------------------------------
-
-def format_engine_output(ai_response):
-    if isinstance(ai_response, dict):
-        return ai_response
-    try:
-        return json.loads(ai_response)
-    except:
-        return {"analysis": ai_response}
-
-
-# ---------------------------------------------------
-# CORE ENGINE FUNCTION
-# ---------------------------------------------------
-
-def generate_job_strategy(user_info, tier):
-
-    tier_settings = TIERS.get(tier, TIERS["free"])
-
-    prompt = build_prompt(user_info, tier_settings)
-
-    ai_response = run_ai_engine(prompt)
-
-    formatted_output = format_engine_output(ai_response)
-
-    return formatted_output
-
-
-# ---------------------------------------------------
-# MAIN API ENDPOINT
-# ---------------------------------------------------
-
-@app.route("/analyze", methods=["POST"])
-def analyze():
-
-    try:
-
-        data = request.json
-
-        user_id = data.get("user_id", "anonymous")
-
-        tier = data.get("tier", "free")
-
-        user_info = data.get("user_info", {})
-
-        # ---------------------------
-        # VALIDATE INPUT
-        # ---------------------------
-
-        valid, error = validate_user_info(user_info)
-
-        if not valid:
-
-            return jsonify({
-                "success": False,
-                "error": error
-            }), 400
-
-        # ---------------------------
-        # CHECK USAGE LIMIT
-        # ---------------------------
-
-        allowed, limit = check_usage(user_id, tier)
-
-        if not allowed:
-
-            return jsonify({
-                "success": False,
-                "error": "Tier usage limit reached",
-                "limit": limit
-            }), 403
-
-        # ---------------------------
-        # RUN ENGINE
-        # ---------------------------
-
-        result = generate_job_strategy(user_info, tier)
-
-        # ---------------------------
-        # RETURN RESPONSE
-        # ---------------------------
+        result = json.loads(content)
 
         return jsonify({
-
             "success": True,
-
             "tier": tier,
-
-            "usage": user_usage[user_id],
-
             "result": result
-
         })
 
     except Exception as e:
-
-        return jsonify({
-
-            "success": False,
-
-            "error": str(e)
-
-        }), 500
-
-
-# ---------------------------------------------------
-# DEBUG ENDPOINT
-# ---------------------------------------------------
-
-@app.route("/debug/tiers")
-def debug_tiers():
-
-    return jsonify(TIERS)
-
-
-# ---------------------------------------------------
-# LOCAL RUN SUPPORT
-# ---------------------------------------------------
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
-
     port = int(os.environ.get("PORT", 10000))
-
-    app.run(
-
-        host="0.0.0.0",
-
-        port=port
-
-    )
-
-
-
+    app.run(host="0.0.0.0", port=port)
