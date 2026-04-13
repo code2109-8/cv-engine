@@ -66,51 +66,33 @@ reference those explicitly throughout every field.
 For EACH company provide every field below:
 
 1. company_name
-   A real company name with a verified presence near {location}.
 
-2. job_title
-   The specific realistic role this person would apply for based on their skills and career goal.
+2. company_linkedin_url
+   A direct LinkedIn company page URL in this format:
+   https://www.linkedin.com/company/[company-name-slug]/
 
-3. decision_maker_role
-   The most relevant hiring decision maker title at this company (e.g. "Head of Engineering", "VP of Data", "CTO", "Engineering Manager").
+3. job_title
 
-4. email_format
-   The company's known professional email format based on their publicly known pattern.
-   Be specific per company — do not use a generic guess.
-   Example: "firstname@monzo.com" or "firstname.lastname@deliveroo.com"
+4. decision_maker_role
 
-5. linkedin_search_url
-   A highly targeted LinkedIn people search URL in this exact format:
-   https://www.linkedin.com/search/results/people/?keywords=[ROLE]&company=[COMPANY]&geoUrn=[GEOURN]
-   GeoUrns: UK = 102257491 | USA = 103644278 | Canada = 101174742 | Australia = 101452733
-   Replace spaces in keywords with +. Match keywords to the decision_maker_role exactly.
+5. email_format
 
-6. match_percentage
-   Integer between 65 and 99 reflecting how well this person's specific skills match this company.
+6. linkedin_search_url
 
-7. match_reason
-   One specific sentence referencing the company's actual known work AND the user's specific skills from their profile.
+7. match_percentage
 
-8. outreach_subject
-   A compelling, specific email subject line for this company and role.
-   Must reference the user's actual background, not a generic title.
+8. match_reason
 
-9. outreach_email
-   A fully written, detailed, personalised cold outreach email. Minimum 5 paragraphs.
-   Structure it like this:
-   - Paragraph 1: Open with something specific and genuine about this company — their product, mission, recent news, or engineering culture. Show you know them.
-   - Paragraph 2: Introduce the user and directly connect their specific skills (from the profile above) to what this company does. Name the actual technologies or experience.
-   - Paragraph 3: Give a concrete example of relevant experience or a project that demonstrates value. Be specific — draw from what the user shared.
-   - Paragraph 4: Explain why this specific company excites the user based on their career goal.
-   - Paragraph 5: Clear, confident call to action — suggest a short call or chat, not just "let me know if interested."
-   Tone: professional, warm, and human. It must read like it was written specifically for this company, not copy-pasted.
+9. outreach_subject
 
-10. linkedin_message
-    A detailed, personalised LinkedIn connection request message. Maximum 300 characters.
-    - Open with something specific about the company
-    - Reference one of the user's key skills directly
-    - Give a genuine reason to connect
-    - Must not sound automated or templated
+10. outreach_email
+   - Keep it HIGHLY personalised but slightly more concise than before
+   - Use 3–4 paragraphs maximum
+   - Still specific, but tighter and more direct
+
+11. linkedin_message
+    - Maximum 200 characters
+    - Must be concise, natural, and personal (not templated)
 
 {"Also provide exactly 3 specific, detailed CV improvement suggestions directly based on this user's stated experience, skills, and career goal. Each suggestion should be actionable and explain why it will help." if cv_enabled else ""}
 
@@ -120,15 +102,16 @@ RULES:
 - Companies must be real and near {location} — non-negotiable.
 - All content must directly reference the user's actual skills, experience, and career goal.
 - outreach_email and linkedin_message must feel like they were written individually for each company.
-- linkedin_message must be strictly under 300 characters.
+- linkedin_message must be strictly under 200 characters.
 - Do not repeat the same phrases across different companies.
 
 Return exactly this structure:
 
-{{
+{
   "companies": [
-    {{
+    {
       "company_name": "Monzo",
+      "company_linkedin_url": "https://www.linkedin.com/company/monzo/",
       "job_title": "Senior Backend Engineer",
       "decision_maker_role": "Head of Engineering",
       "email_format": "firstname@monzo.com",
@@ -136,12 +119,12 @@ Return exactly this structure:
       "match_percentage": 91,
       "match_reason": "Your Python and distributed systems experience maps directly to Monzo's backend engineering challenges at scale.",
       "outreach_subject": "Backend Engineer with Python and distributed systems background — excited about Monzo",
-      "outreach_email": "Dear Head of Engineering,\\n\\nParagraph about Monzo specifically...\\n\\nParagraph connecting user skills to Monzo...\\n\\nParagraph with concrete experience example...\\n\\nParagraph about why Monzo fits career goal...\\n\\nCall to action.",
-      "linkedin_message": "Hi, Monzo's approach to real-time payments is impressive. My background in Python and distributed systems feels like a strong fit for your engineering team. Would love to connect."
-    }}
+      "outreach_email": "Dear Head of Engineering,\n\nParagraph 1...\n\nParagraph 2...\n\nParagraph 3...\n\nCall to action.",
+      "linkedin_message": "Hi, Monzo's work in real-time payments is impressive. My Python and distributed systems experience feels like a strong fit. Would love to connect."
+    }
   ],
   "cv_feedback": ["detailed suggestion 1", "detailed suggestion 2", "detailed suggestion 3"]
-}}
+}
 """
 
         response = client.chat.completions.create(
@@ -154,8 +137,8 @@ Return exactly this structure:
                         "You produce only valid JSON with highly specific, location-accurate, deeply personalised career data. "
                         "Every output must directly reference the user's actual skills, experience, and career goal. "
                         "You never write generic content. You never suggest companies outside the user's location unless remote. "
-                        "Outreach emails must be detailed, warm, and feel handwritten for each specific company. "
-                        "LinkedIn messages must be under 300 characters and feel genuinely personal."
+                        "Outreach emails must be concise, warm, and feel handcrafted for each company. "
+                        "LinkedIn messages must be under 200 characters and feel genuinely personal."
                     )
                 },
                 {"role": "user", "content": prompt}
