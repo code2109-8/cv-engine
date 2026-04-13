@@ -12,12 +12,10 @@ API_KEY = os.getenv("OPENAI_API_KEY", "missing")
 client = OpenAI(api_key=API_KEY)
 
 TIERS = {
-    "free": {"company_targets": 3, "cv_analysis": False},
-    "pro": {"company_targets": 15, "cv_analysis": True},
+    "free":     {"company_targets": 3,  "cv_analysis": False},
+    "pro":      {"company_targets": 15, "cv_analysis": True},
     "advanced": {"company_targets": 30, "cv_analysis": True}
 }
-
-user_usage = {}
 
 @app.route("/")
 def health():
@@ -27,49 +25,89 @@ def health():
 def analyze():
     try:
         data = request.json
-        user_id = data.get("user_id", "anonymous")
-        tier = data.get("tier", "free")
+        user_id   = data.get("user_id", "anonymous")
+        tier      = data.get("tier", "free")
         user_info = data.get("user_info", {})
+
         tier_settings = TIERS.get(tier, TIERS["free"])
         company_count = tier_settings["company_targets"]
-        cv_enabled = tier_settings["cv_analysis"]
+        cv_enabled    = tier_settings["cv_analysis"]
+
+        location = user_info.get("location", "UK")
 
         prompt = f"""
-You are an elite AI career engine for tech professionals.
+You are CareerMind, an elite AI career engine built specifically for tech professionals.
 
-User profile:
-{json.dumps(user_info)}
+USER PROFILE:
+{json.dumps(user_info, indent=2)}
 
-Your task is to generate {company_count} real UK or global tech companies that are likely hiring for this person's skills.
+LOCATION INSTRUCTIONS — THIS IS CRITICAL:
+The user is based in: {location}
+You MUST find real companies that are physically located in or very close to {location}.
+If the user is in a specific city (e.g. Manchester, Birmingham, Leeds, London), prioritise companies
+with offices or headquarters in that exact city first, then within 20 miles.
+Do NOT suggest companies that have no presence near {location}.
+Only suggest remote-friendly global companies as a last resort if local options are limited,
+and clearly note they are remote.
 
-For each company you MUST provide:
-- A real company name
-- The likely job title this person would apply for at that company
-- A realistic decision maker name (e.g. Head of Engineering, CTO, Engineering Manager)
-- A realistic professional email for that decision maker based on the company's known email format
-- A realistic LinkedIn search URL for that decision maker like https://www.linkedin.com/search/results/people/?keywords=Head+of+Engineering+DeepMind
-- A match percentage between 60 and 99 based on how well the person fits
-- A personalised outreach email subject line for that specific company
-- A personalised outreach email body for that specific company referencing their actual work and the user's specific skills
-- One sentence explaining why this company is a good match
+TASK:
+Generate {company_count} real tech companies that are a strong hiring match for this person
+based on their skills, experience, career goal, AND location.
 
-{"Also provide 3 specific CV improvement suggestions based on the user's experience." if cv_enabled else ""}
+For EACH company provide every field below:
 
-Return ONLY a JSON object with NO extra text, NO markdown, NO backticks. Exactly this structure:
+1. company_name — real company name with a presence near {location}
+2. job_title — specific realistic role this person would apply for
+3. decision_maker_role — the most relevant hiring decision maker title (e.g. "Head of Engineering", "CTO", "Engineering Manager")
+4. email_format — the company's known professional email format as a best guess
+   (e.g. "firstname@monzo.com" or "firstname.lastname@company.com")
+   Base this on the company's publicly known email pattern. Be specific per company.
+5. linkedin_search_url — a highly targeted LinkedIn people search URL constructed like this:
+   https://www.linkedin.com/search/results/people/?keywords=[ROLE]&company=[COMPANY]&geoUrn=[GEOURN]
+   Use the correct geoUrn for the user's country:
+   UK = 102257491 | USA = 103644278 | Canada = 101174742 | Australia = 101452733
+   For other countries use the correct LinkedIn geoUrn.
+   Make keywords match the decision_maker_role exactly, replacing spaces with +
+6. match_percentage — integer between 65 and 99
+7. match_reason — one specific sentence referencing the company's actual work and the user's skills
+8. outreach_subject — a compelling specific email subject line
+9. outreach_email — a fully written personalised outreach email (4-6 paragraphs):
+   - Address the decision maker by role naturally (e.g. "Dear Head of Engineering,")
+   - Mention something real and specific about the company
+   - Connect the user's actual skills to that company's needs
+   - Professional, warm, human tone — not stiff or templated
+   - End with a clear confident call to action
+10. linkedin_message — a short punchy LinkedIn connection request message (strictly under 300 characters):
+    - Reference something specific about the company
+    - Mention the user's most relevant skill
+    - End with a reason to connect
+    - Must feel personal and genuine, not like a mass message
+
+{"Also provide exactly 3 specific actionable CV improvement suggestions tailored to this user's experience and career goal." if cv_enabled else ""}
+
+RULES:
+- Return ONLY valid JSON. No markdown, no backticks, no explanation, no extra text whatsoever.
+- Every single field must be filled — no nulls, no empty strings, no placeholders.
+- Companies must be real and located near {location} — this is non-negotiable.
+- Outreach emails and LinkedIn messages must feel individually written, not templated.
+- Email formats should reflect each company's actual known pattern, not a generic guess.
+- linkedin_message must be strictly under 300 characters.
+
+Return exactly this structure:
 
 {{
   "companies": [
     {{
-      "company_name": "DeepMind",
-      "job_title": "Software Engineer",
-      "decision_maker_name": "Sarah Johnson",
+      "company_name": "Bet365",
+      "job_title": "Senior Software Engineer",
       "decision_maker_role": "Head of Engineering",
-      "email": "s.johnson@deepmind.com",
-      "linkedin_url": "https://www.linkedin.com/search/results/people/?keywords=Head+of+Engineering+DeepMind",
-      "match_percentage": 92,
-      "match_reason": "Your Python and ML skills align directly with DeepMind's research engineering teams.",
-      "outreach_subject": "Software Engineer with ML background — keen to contribute at DeepMind",
-      "outreach_email": "Dear Sarah,\\n\\nI came across DeepMind's recent work on AlphaFold and was genuinely impressed..."
+      "email_format": "firstname.lastname@bet365.com",
+      "linkedin_search_url": "https://www.linkedin.com/search/results/people/?keywords=Head+of+Engineering&company=Bet365&geoUrn=102257491",
+      "match_percentage": 88,
+      "match_reason": "Your Python and backend experience aligns with Bet365's high-traffic platform engineering needs based in Stoke-on-Trent.",
+      "outreach_subject": "Senior Software Engineer with high-scale backend experience — interested in Bet365",
+      "outreach_email": "Dear Head of Engineering,\\n\\nI've been following Bet365's engineering work and was particularly impressed by your approach to handling millions of concurrent users during live events...\\n\\n",
+      "linkedin_message": "Hi, I've been following Bet365's engineering work — the real-time scale you handle is impressive. My Python and backend background feels like a strong fit. Would love to connect."
     }}
   ],
   "cv_feedback": ["suggestion 1", "suggestion 2", "suggestion 3"]
@@ -77,19 +115,29 @@ Return ONLY a JSON object with NO extra text, NO markdown, NO backticks. Exactly
 """
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a precise career intelligence engine. You return only valid JSON."},
+                {
+                    "role": "system",
+                    "content": (
+                        "You are CareerMind's precision career intelligence engine for tech professionals. "
+                        "You produce only valid JSON with highly specific, location-accurate career data. "
+                        "You never suggest companies outside the user's location unless they are explicitly remote-friendly. "
+                        "Every output is tailored, real, and immediately actionable. "
+                        "LinkedIn messages must be strictly under 300 characters and feel genuinely personal."
+                    )
+                },
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=4000
+            max_tokens=4000,
+            temperature=0.7
         )
 
         content = response.choices[0].message.content.strip()
 
-        # Clean any accidental markdown
         if content.startswith("```"):
-            content = content.split("```")[1]
+            parts = content.split("```")
+            content = parts[1] if len(parts) > 1 else content
             if content.startswith("json"):
                 content = content[4:]
         content = content.strip()
@@ -98,12 +146,16 @@ Return ONLY a JSON object with NO extra text, NO markdown, NO backticks. Exactly
 
         return jsonify({
             "success": True,
+            "user_id": user_id,
             "tier": tier,
             "result": result
         })
 
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"JSON parse error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
