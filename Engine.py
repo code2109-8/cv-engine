@@ -127,6 +127,7 @@ For EACH company provide every field below with no exceptions:
     - Mention one of the user's key skills from their profile
     - Give a clear genuine reason to connect
     - Must not sound automated
+    - attach a link to the companies linkedin
 
 {"Also provide exactly 3 specific actionable CV improvement suggestions directly based on this user's stated skills, experience, and career goal. Each must be practical, explain what to change and why it helps." if cv_enabled else ""}
 
