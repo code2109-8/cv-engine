@@ -77,63 +77,69 @@ For EACH company provide every field below with no exceptions:
 
 4. email_format
    The company's known email format based on their publicly known pattern.
-   Be specific — not generic. e.g. "firstname@monzo.com" or "firstname.lastname@deliveroo.com"
+   Be specific per company. e.g. "firstname@monzo.com" or "firstname.lastname@deliveroo.com"
 
-5. company_linkedin_url
-   The official LinkedIn company page URL in this format:
+5. company_public_email
+   The company's publicly listed contact or hiring email address.
+   This must be a real publicly known email — check what is commonly listed on their website,
+   LinkedIn page, Glassdoor, or jobs pages.
+   Examples: "talent@monzo.com", "hiring@revolut.com", "careers@thoughtworks.com"
+   If no specific hiring email is publicly known, use the general contact email e.g. "hello@company.com"
+   This must be a real email for this company — not invented.
+
+6. company_linkedin_url
+   The official LinkedIn company page URL:
    https://www.linkedin.com/company/[company-slug]/
-   Use the real company slug exactly as it appears on LinkedIn.
+   Use the real slug exactly as it appears on LinkedIn.
    Example: https://www.linkedin.com/company/monzo-bank/
 
-6. decision_maker_linkedin_url
+7. decision_maker_linkedin_url
    A targeted LinkedIn people search URL to find the decision maker:
    https://www.linkedin.com/search/results/people/?keywords=[ROLE]&company=[COMPANY]&geoUrn=[GEOURN]
    GeoUrns: UK = 102257491 | USA = 103644278 | Canada = 101174742 | Australia = 101452733
    Replace spaces in keywords with +.
 
-7. careers_page_url
-   The real URL of the company's careers or jobs page where the user can find open roles and
-   sometimes a contact email. Use the actual known URL for this company.
-   Example: https://monzo.com/careers or https://boards.greenhouse.io/monzo
+8. careers_page_url
+   The real URL of the company's careers or jobs page.
+   Use the actual known URL. Example: https://monzo.com/careers
 
-8. match_percentage
+9. match_percentage
    Integer between 65 and 99 based on how well this person's specific skills match this company.
 
-9. match_reason
-   One specific sentence referencing the company's actual work AND the user's specific skills.
+10. match_reason
+    One specific sentence referencing the company's actual work AND the user's specific skills.
 
-10. outreach_subject
+11. outreach_subject
     A compelling email subject line specific to this company and this user's background.
-    Keep it under 12 words. Make it feel human, not automated.
+    Under 12 words. Human, not automated.
 
-11. outreach_email
-    A fully written personalised cold outreach email. 4 paragraphs maximum. Keep it concise.
-    - Paragraph 1: One or two sentences — something specific and genuine about this company.
-    - Paragraph 2: Introduce the user and connect their SPECIFIC skills (named from profile) to what this company does.
-    - Paragraph 3: One concrete example from their experience that demonstrates real value.
-    - Paragraph 4: Brief call to action — suggest a short call or chat. Confident, not desperate.
-    Tone: professional, warm, human. Must feel written for this company specifically.
-    Total length: no more than 200 words.
+12. outreach_email
+    A fully written personalised cold outreach email. 4 paragraphs maximum. Under 200 words.
+    - Paragraph 1: Something specific and genuine about this company — product, mission, or culture.
+    - Paragraph 2: Introduce the user and connect their SPECIFIC named skills to what this company does.
+    - Paragraph 3: One concrete example from their experience that shows real value.
+    - Paragraph 4: Confident call to action — suggest a short call or chat.
+    Tone: professional, warm, human. Written for this company specifically.
 
-12. linkedin_message
-    A personalised LinkedIn connection request message. Strictly under 300 characters.
+13. linkedin_message
+    A personalised LinkedIn connection request. Strictly under 300 characters.
     - Reference something specific about this company
     - Mention one of the user's key skills from their profile
-    - Give a clear reason to connect
-    - Must not sound automated or copy-pasted
-    Keep it conversational and genuine.
+    - Give a clear genuine reason to connect
+    - Must not sound automated
 
-{"Also provide exactly 3 specific actionable CV improvement suggestions directly based on this user's stated skills, experience, and career goal. Each suggestion must be practical, explain what to change, and why it helps." if cv_enabled else ""}
+{"Also provide exactly 3 specific actionable CV improvement suggestions directly based on this user's stated skills, experience, and career goal. Each must be practical, explain what to change and why it helps." if cv_enabled else ""}
 
 RULES:
-- Return ONLY valid JSON. No markdown, no backticks, no preamble, no extra text whatsoever.
+- Return ONLY valid JSON. No markdown, no backticks, no preamble, no extra text.
 - Every field must be filled — no nulls, no empty strings, no placeholders.
 - Companies must be real and near {location} — non-negotiable.
-- All content must directly reference the user's actual profile — never write generic filler.
+- All content must directly reference the user's actual profile — never generic filler.
 - outreach_email must be under 200 words.
 - linkedin_message must be under 300 characters.
-- Do not repeat the same phrases or sentence structures across different companies.
-- careers_page_url and company_linkedin_url must be real known URLs for that company.
+- Do not repeat the same phrases across different companies.
+- All URLs must be real and accurate for each specific company.
+- company_public_email must be a real publicly known email for that company.
 
 Return exactly this JSON structure:
 
@@ -144,14 +150,15 @@ Return exactly this JSON structure:
       "job_title": "Senior Backend Engineer",
       "decision_maker_role": "Head of Engineering",
       "email_format": "firstname@monzo.com",
+      "company_public_email": "talent@monzo.com",
       "company_linkedin_url": "https://www.linkedin.com/company/monzo-bank/",
       "decision_maker_linkedin_url": "https://www.linkedin.com/search/results/people/?keywords=Head+of+Engineering&company=Monzo&geoUrn=102257491",
       "careers_page_url": "https://monzo.com/careers",
       "match_percentage": 91,
       "match_reason": "Your Python and distributed systems experience maps directly to Monzo's backend engineering challenges at scale.",
       "outreach_subject": "Backend engineer with Python expertise — keen to contribute at Monzo",
-      "outreach_email": "Dear Head of Engineering,\\n\\nMonzo's approach to building a bank from the ground up in Python is something I've followed closely for years.\\n\\nI'm a backend engineer with 4 years of experience in Python and distributed systems — exactly the kind of work your platform runs on.\\n\\nAt my current role I reduced API response times by 40% through async refactoring across a high-traffic service — the kind of challenge I'd love to bring to Monzo's scale.\\n\\nI'd love a 15-minute chat if you have availability — happy to work around your schedule.",
-      "linkedin_message": "Hi, Monzo's engineering culture and Python-first approach really stands out. My background in distributed backend systems feels like a strong fit. Would love to connect and learn more."
+      "outreach_email": "Dear Head of Engineering,\\n\\nMonzo's approach to building a fully cloud-native bank in Python is something I've followed closely — the engineering blog alone is a masterclass in distributed systems.\\n\\nI'm a backend engineer with 4 years in Python and distributed systems, which maps directly to the infrastructure challenges your platform handles daily.\\n\\nAt my current role I reduced API response times by 40% through async refactoring on a high-traffic service — that kind of performance work is where I thrive.\\n\\nI'd love a 15-minute chat if you have availability — happy to work around your schedule.",
+      "linkedin_message": "Hi, Monzo's Python-first engineering culture really stands out to me. My background in distributed backend systems feels like a strong fit. Would love to connect."
     }}
   ],
   "cv_feedback": ["detailed suggestion 1", "detailed suggestion 2", "detailed suggestion 3"]
@@ -168,9 +175,10 @@ Return exactly this JSON structure:
                         "You produce only valid JSON with highly specific, location-accurate, deeply personalised career data. "
                         "Every output must directly reference the user's actual skills, experience, and career goal — never generic. "
                         "You never suggest companies outside the user's location unless explicitly remote. "
-                        "Outreach emails must be concise, warm, and feel handwritten for each specific company — under 200 words. "
-                        "LinkedIn messages must be under 300 characters and feel genuinely personal. "
-                        "All URLs must be real and accurate for each company."
+                        "company_public_email must be a real publicly known email for that company — not invented. "
+                        "All URLs must be real and accurate. "
+                        "Outreach emails must be under 200 words and feel handwritten for each company. "
+                        "LinkedIn messages must be under 300 characters and feel genuinely personal."
                     )
                 },
                 {"role": "user", "content": prompt}
