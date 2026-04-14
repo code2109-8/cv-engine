@@ -140,6 +140,8 @@ RULES:
 - Do not repeat the same phrases across different companies.
 - All URLs must be real and accurate for each specific company.
 - company_public_email must be a real publicly known email for that company.
+- Add a link to the LinkedIn of the companies you find.
+- Find the publicly available email of the best person you can find to conact for each company you find.
 
 Return exactly this JSON structure:
 
