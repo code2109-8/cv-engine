@@ -66,7 +66,7 @@ Never write generic content that could apply to anyone.
 For EACH company provide every field below with no exceptions:
 
 1. company_name
-   A real company name with a verified presence near {location}.
+   A real company name with a verified presence near {location} in the UK.
 
 2. job_title
    The specific role this person would realistically apply for based on their skills and career goal.
